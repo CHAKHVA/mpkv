@@ -1,10 +1,3 @@
-"""
-Field validation descriptors for MPKV data models.
-
-This module provides descriptor classes for validating and processing different
-types of fields used in the knowledge vault data structures.
-"""
-
 from typing import Any, Type
 
 
