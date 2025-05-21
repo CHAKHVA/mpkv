@@ -1,4 +1,4 @@
-from typing import Any, Type
+from typing import Any
 
 
 class BaseField:
@@ -24,7 +24,7 @@ class BaseField:
         self.name = ""  # Will be set when descriptor is assigned to a class
         self.required = required
 
-    def __set_name__(self, owner: Type, name: str):
+    def __set_name__(self, owner: type, name: str):
         """
         Set the name of the descriptor when it's assigned as a class attribute.
 
@@ -34,7 +34,7 @@ class BaseField:
         """
         self.name = name
 
-    def __get__(self, instance: Any, owner: Type) -> Any:
+    def __get__(self, instance: Any, owner: type) -> Any:
         """
         Get the value of the field from the instance.
 
