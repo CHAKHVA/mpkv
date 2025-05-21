@@ -83,7 +83,7 @@ class Note:
         # Set or generate filename
         if filename is None:
             # Generate filename from id with .md extension
-            self.filename = f"{self.id}.md"
+            self.filename = f"{self.id}.txt"
         else:
             self.filename = filename
 
