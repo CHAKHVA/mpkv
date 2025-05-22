@@ -4,7 +4,7 @@ import os
 import os.path
 import uuid
 
-from vault.errors import NoteNotFoundError, StorageError
+from vault.errors import DuplicateTitleError, NoteNotFoundError, StorageError
 from vault.models import Note
 
 # Configure logging
@@ -439,3 +439,182 @@ def _delete_note_internal(note_id: str, vault_path: str | None = None) -> None:
     except Exception as e:
         # Wrap unexpected errors in StorageError
         raise StorageError(f"Failed to delete note '{note_id}': {e}", original_error=e)
+
+
+def _find_note_id_by_title(title: str, vault_path: str | None = None) -> str | None:
+    """
+    Find a note's ID by its title.
+
+    This function searches through the vault index to find a note with the
+    given title. If found, returns its ID; otherwise, returns None.
+
+    Args:
+        title: The title to search for
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Returns:
+        The ID of the note with the given title, or None if not found
+
+    Raises:
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> _find_note_id_by_title("My Note")
+        '123e4567-e89b-12d3-a456-426614174000'
+    """
+    try:
+        index_data = load_index(vault_path)
+        if "notes" not in index_data:
+            return None
+
+        for note_id, note_data in index_data["notes"].items():
+            if note_data.get("title") == title:
+                return note_id
+
+        return None
+
+    except StorageError as e:
+        # Re-raise StorageError with more context
+        raise StorageError(
+            f"Failed to find note with title '{title}': {e}", original_error=e
+        )
+
+
+def create_note(
+    title: str,
+    content: str,
+    tags: str | list[str] | None = None,
+    vault_path: str | None = None,
+) -> Note:
+    """
+    Create a new note in the vault.
+
+    This function creates a new note with the given title, content, and optional tags.
+    It ensures the title is unique and handles all the necessary setup for the note.
+
+    Args:
+        title: The title of the note
+        content: The content of the note
+        tags: Optional tags for the note (comma-separated string or list)
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Returns:
+        The created Note object
+
+    Raises:
+        DuplicateTitleError: If a note with the given title already exists
+        ValueError: If the note data fails validation
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> note = create_note("My Note", "Note content", ["tag1", "tag2"])
+        >>> print(note.title)
+        'My Note'
+    """
+    try:
+        # Ensure vault directory exists
+        ensure_vault_dirs_exist(vault_path)
+
+        # Check for duplicate title
+        existing_id = _find_note_id_by_title(title, vault_path)
+        if existing_id is not None:
+            raise DuplicateTitleError(title)
+
+        # Generate ID and create note
+        note_id = generate_note_id()
+        note = Note(
+            title=title,
+            content=content,
+            tags=tags,
+            id=note_id,
+        )
+
+        # Create note in vault
+        _create_note_internal(note, vault_path)
+        return note
+
+    except (DuplicateTitleError, ValueError) as e:
+        # Re-raise validation errors
+        raise
+    except StorageError as e:
+        # Re-raise StorageError with more context
+        raise StorageError(
+            f"Failed to create note with title '{title}': {e}", original_error=e
+        )
+
+
+def get_note_by_title(title: str, vault_path: str | None = None) -> Note:
+    """
+    Get a note from the vault by its title.
+
+    This function finds a note with the given title and returns it.
+
+    Args:
+        title: The title of the note to retrieve
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Returns:
+        The retrieved Note object
+
+    Raises:
+        NoteNotFoundError: If no note with the given title exists
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> note = get_note_by_title("My Note")
+        >>> print(note.content)
+        'Note content'
+    """
+    try:
+        # Find note ID by title
+        note_id = _find_note_id_by_title(title, vault_path)
+        if note_id is None:
+            raise NoteNotFoundError(title)
+
+        # Get note by ID
+        return _get_note_internal(note_id, vault_path)
+
+    except (NoteNotFoundError, StorageError) as e:
+        # Re-raise the original error
+        raise
+    except Exception as e:
+        # Wrap unexpected errors in StorageError
+        raise StorageError(
+            f"Failed to get note with title '{title}': {e}", original_error=e
+        )
+
+
+def delete_note_by_title(title: str, vault_path: str | None = None) -> None:
+    """
+    Delete a note from the vault by its title.
+
+    This function finds a note with the given title and deletes it.
+
+    Args:
+        title: The title of the note to delete
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Raises:
+        NoteNotFoundError: If no note with the given title exists
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> delete_note_by_title("My Note")
+    """
+    try:
+        # Find note ID by title
+        note_id = _find_note_id_by_title(title, vault_path)
+        if note_id is None:
+            raise NoteNotFoundError(title)
+
+        # Delete note by ID
+        _delete_note_internal(note_id, vault_path)
+
+    except (NoteNotFoundError, StorageError) as e:
+        # Re-raise the original error
+        raise
+    except Exception as e:
+        # Wrap unexpected errors in StorageError
+        raise StorageError(
+            f"Failed to delete note with title '{title}': {e}", original_error=e
+        )

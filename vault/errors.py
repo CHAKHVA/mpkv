@@ -46,3 +46,29 @@ class NoteNotFoundError(Exception):
             message = f"Note with ID '{note_id}' not found"
         super().__init__(message)
         self.note_id = note_id
+
+
+class DuplicateTitleError(Exception):
+    """
+    Exception raised when attempting to create a note with a title that already exists.
+
+    This exception is raised when trying to create a new note with a title that
+    matches an existing note in the vault.
+
+    Attributes:
+        title: The duplicate title that caused the error
+        message: A human-readable error message
+    """
+
+    def __init__(self, title: str, message: str | None = None):
+        """
+        Initialize a new DuplicateTitleError.
+
+        Args:
+            title: The duplicate title that caused the error
+            message: Optional custom error message
+        """
+        if message is None:
+            message = f"Note with title '{title}' already exists"
+        super().__init__(message)
+        self.title = title
