@@ -32,7 +32,7 @@ class TestNote(unittest.TestCase):
         self.assertIsInstance(note.created_at, datetime.datetime)
         self.assertIsInstance(note.last_modified, datetime.datetime)
         self.assertEqual(note.last_modified, note.created_at)
-        self.assertTrue(note.filename.endswith(".md"))
+        self.assertTrue(note.filename.endswith(".txt"))
         self.assertIn(note.id, note.filename)  # Filename should contain ID
 
     def test_init_with_all_params(self):
@@ -198,7 +198,7 @@ class TestNote(unittest.TestCase):
             "tags": ["test", "note", "unittest"],
             "created_at": now_iso,
             "last_modified": now_iso,
-            "filename": f"{test_id}.md",
+            "filename": f"{test_id}.txt",
         }
 
         note = Note.from_dict(data, self.valid_content)
@@ -208,7 +208,7 @@ class TestNote(unittest.TestCase):
         self.assertEqual(note.title, self.valid_title)
         self.assertEqual(note.content, self.valid_content)
         self.assertEqual(note.tags, ["test", "note", "unittest"])
-        self.assertEqual(note.filename, f"{test_id}.md")
+        self.assertEqual(note.filename, f"{test_id}.txt")
 
         # Check timestamp conversion
         self.assertIsInstance(note.created_at, datetime.datetime)
