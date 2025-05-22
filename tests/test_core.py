@@ -8,7 +8,10 @@ from unittest.mock import mock_open, patch
 from vault.core import (
     NOTES_SUBDIR_NAME,
     VAULT_DIR_NAME,
+    _create_note_internal,
+    _delete_note_internal,
     _get_note_file_path,
+    _get_note_internal,
     ensure_vault_dirs_exist,
     generate_note_id,
     get_vault_path,
@@ -18,6 +21,7 @@ from vault.core import (
     write_note_content,
 )
 from vault.errors import NoteNotFoundError, StorageError
+from vault.models import Note
 
 
 class TestVaultSetup(unittest.TestCase):
@@ -375,6 +379,193 @@ class TestVaultFiles(unittest.TestCase):
         # Verify file was opened and written correctly
         mock_file.assert_called_once_with(expected_note_path, "w", encoding="utf-8")
         mock_file().write.assert_called_once_with(self.note_content)
+
+
+class TestVaultPersistence(unittest.TestCase):
+    def setUp(self):
+        """Set up test fixtures before each test method."""
+        self.home_dir = "/home/testuser"
+        self.vault_path = os.path.join(self.home_dir, VAULT_DIR_NAME)
+        self.notes_dir = os.path.join(self.vault_path, NOTES_SUBDIR_NAME)
+        self.note_id = "123e4567-e89b-12d3-a456-426614174000"
+        self.note_title = "Test Note"
+        self.note_content = "This is a test note content"
+        self.note_tags = ["test", "example"]
+        self.note = Note(
+            title=self.note_title,
+            content=self.note_content,
+            tags=self.note_tags,
+            id=self.note_id,
+        )
+        self.index_data = {
+            "notes": {
+                self.note_id: {
+                    "id": self.note_id,
+                    "title": self.note_title,
+                    "tags": self.note_tags,
+                    "created_at": "2024-01-01T00:00:00+00:00",
+                    "last_modified": "2024-01-01T00:00:00+00:00",
+                    "filename": f"{self.note_id}.txt",
+                }
+            }
+        }
+
+    @patch("vault.core.write_note_content")
+    @patch("vault.core.load_index")
+    @patch("vault.core.save_index")
+    def test_create_note_success(
+        self, mock_save_index, mock_load_index, mock_write_content
+    ):
+        """Test successful note creation."""
+        # Setup mocks
+        mock_load_index.return_value = {"notes": {}}
+
+        # Create note
+        _create_note_internal(self.note)
+
+        # Verify write_note_content was called
+        mock_write_content.assert_called_once_with(
+            self.note.id, self.note.content, None
+        )
+
+        # Verify index operations
+        mock_load_index.assert_called_once()
+        mock_save_index.assert_called_once()
+        saved_index = mock_save_index.call_args[0][0]
+        self.assertIn(self.note.id, saved_index["notes"])
+        self.assertEqual(saved_index["notes"][self.note.id]["title"], self.note_title)
+
+    @patch("vault.core.write_note_content")
+    @patch("vault.core.load_index")
+    def test_create_note_storage_error(self, mock_load_index, mock_write_content):
+        """Test handling of StorageError during note creation."""
+        # Setup mocks
+        mock_write_content.side_effect = StorageError("Write failed")
+
+        with self.assertRaises(StorageError) as context:
+            _create_note_internal(self.note)
+
+        # Verify error
+        self.assertIn("Failed to create note", str(context.exception))
+        self.assertIsInstance(context.exception.original_error, StorageError)
+        mock_write_content.assert_called_once()
+        mock_load_index.assert_not_called()
+
+    @patch("vault.core.load_index")
+    @patch("vault.core.read_note_content")
+    def test_get_note_success(self, mock_read_content, mock_load_index):
+        """Test successful note retrieval."""
+        # Setup mocks
+        mock_load_index.return_value = self.index_data
+        mock_read_content.return_value = self.note_content
+
+        # Get note
+        result = _get_note_internal(self.note_id)
+
+        # Verify result
+        self.assertIsInstance(result, Note)
+        self.assertEqual(result.id, self.note_id)
+        self.assertEqual(result.title, self.note_title)
+        self.assertEqual(result.content, self.note_content)
+        self.assertEqual(result.tags, self.note_tags)
+
+        # Verify mocks
+        mock_load_index.assert_called_once()
+        mock_read_content.assert_called_once_with(self.note_id, None)
+
+    @patch("vault.core.load_index")
+    def test_get_note_not_found(self, mock_load_index):
+        """Test handling of non-existent note."""
+        # Setup mocks
+        mock_load_index.return_value = {"notes": {}}
+
+        with self.assertRaises(NoteNotFoundError) as context:
+            _get_note_internal(self.note_id)
+
+        # Verify error
+        self.assertEqual(context.exception.note_id, self.note_id)
+        mock_load_index.assert_called_once()
+
+    @patch("vault.core.load_index")
+    @patch("vault.core.read_note_content")
+    def test_get_note_storage_error(self, mock_read_content, mock_load_index):
+        """Test handling of StorageError during note retrieval."""
+        # Setup mocks
+        mock_load_index.return_value = self.index_data
+        mock_read_content.side_effect = StorageError("Read failed")
+
+        with self.assertRaises(StorageError) as context:
+            _get_note_internal(self.note_id)
+
+        # Verify error
+        self.assertIn("Failed to get note", str(context.exception))
+        self.assertIsInstance(context.exception.original_error, StorageError)
+        mock_load_index.assert_called_once()
+        mock_read_content.assert_called_once()
+
+    @patch("vault.core.load_index")
+    @patch("vault.core.save_index")
+    @patch("os.remove")
+    def test_delete_note_success(self, mock_remove, mock_save_index, mock_load_index):
+        """Test successful note deletion."""
+        # Setup mocks
+        mock_load_index.return_value = self.index_data
+
+        # Delete note
+        _delete_note_internal(self.note_id)
+
+        # Verify file removal
+        mock_remove.assert_called_once()
+
+        # Verify index operations
+        mock_load_index.assert_called_once()
+        mock_save_index.assert_called_once()
+        saved_index = mock_save_index.call_args[0][0]
+        self.assertNotIn(self.note_id, saved_index["notes"])
+
+    @patch("vault.core.load_index")
+    def test_delete_note_not_found(self, mock_load_index):
+        """Test handling of non-existent note deletion."""
+        # Setup mocks
+        mock_load_index.return_value = {"notes": {}}
+
+        with self.assertRaises(NoteNotFoundError) as context:
+            _delete_note_internal(self.note_id)
+
+        # Verify error
+        self.assertEqual(context.exception.note_id, self.note_id)
+        mock_load_index.assert_called_once()
+
+    @patch("vault.core.load_index")
+    @patch("os.remove")
+    def test_delete_note_file_not_found(self, mock_remove, mock_load_index):
+        """Test handling of missing note file during deletion."""
+        # Setup mocks
+        mock_load_index.return_value = self.index_data
+        mock_remove.side_effect = FileNotFoundError()
+
+        # Delete note (should not raise error)
+        _delete_note_internal(self.note_id)
+
+        # Verify file removal was attempted
+        mock_remove.assert_called_once()
+
+    @patch("vault.core.load_index")
+    @patch("os.remove")
+    def test_delete_note_storage_error(self, mock_remove, mock_load_index):
+        """Test handling of StorageError during note deletion."""
+        # Setup mocks
+        mock_load_index.return_value = self.index_data
+        mock_remove.side_effect = OSError("Permission denied")
+
+        with self.assertRaises(StorageError) as context:
+            _delete_note_internal(self.note_id)
+
+        # Verify error
+        self.assertIn("Failed to remove note file", str(context.exception))
+        self.assertIsInstance(context.exception.original_error, OSError)
+        mock_load_index.assert_called_once()
+        mock_remove.assert_called_once()
 
 
 if __name__ == "__main__":
