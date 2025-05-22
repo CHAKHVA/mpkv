@@ -379,7 +379,7 @@ def _get_note_internal(note_id: str, vault_path: str | None = None) -> Note:
         # Create and return Note object
         return Note.from_dict(note_data, content)
 
-    except (NoteNotFoundError, StorageError) as e:
+    except (NoteNotFoundError, StorageError):
         # Re-raise the original error
         raise
     except Exception as e:
@@ -433,7 +433,7 @@ def _delete_note_internal(note_id: str, vault_path: str | None = None) -> None:
         del index_data["notes"][note_id]
         save_index(index_data, vault_path)
 
-    except (NoteNotFoundError, StorageError) as e:
+    except (NoteNotFoundError, StorageError):
         # Re-raise the original error
         raise
     except Exception as e:
@@ -533,7 +533,7 @@ def create_note(
         _create_note_internal(note, vault_path)
         return note
 
-    except (DuplicateTitleError, ValueError) as e:
+    except (DuplicateTitleError, ValueError):
         # Re-raise validation errors
         raise
     except StorageError as e:
@@ -574,7 +574,7 @@ def get_note_by_title(title: str, vault_path: str | None = None) -> Note:
         # Get note by ID
         return _get_note_internal(note_id, vault_path)
 
-    except (NoteNotFoundError, StorageError) as e:
+    except (NoteNotFoundError, StorageError):
         # Re-raise the original error
         raise
     except Exception as e:
@@ -610,7 +610,7 @@ def delete_note_by_title(title: str, vault_path: str | None = None) -> None:
         # Delete note by ID
         _delete_note_internal(note_id, vault_path)
 
-    except (NoteNotFoundError, StorageError) as e:
+    except (NoteNotFoundError, StorageError):
         # Re-raise the original error
         raise
     except Exception as e:
