@@ -5,6 +5,7 @@ import os.path
 import uuid
 
 from vault.errors import NoteNotFoundError, StorageError
+from vault.models import Note
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -296,3 +297,145 @@ def write_note_content(
         error_msg = f"Failed to write note content to {note_path}: {e}"
         logger.error(error_msg)
         raise StorageError(error_msg, original_error=e)
+
+
+def _create_note_internal(note: Note, vault_path: str | None = None) -> None:
+    """
+    Create a new note in the vault.
+
+    This internal function handles the complete process of creating a note:
+    1. Writing the note's content to a file
+    2. Loading the current index
+    3. Adding the note's metadata to the index
+    4. Saving the updated index
+
+    Args:
+        note: The Note object to create
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Raises:
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> note = Note(title="My Note", content="Note content")
+        >>> _create_note_internal(note)
+    """
+    try:
+        # Write note content to file
+        write_note_content(note.id, note.content, vault_path)
+
+        # Load current index
+        index_data = load_index(vault_path)
+        if "notes" not in index_data:
+            index_data["notes"] = {}
+
+        # Add note metadata to index
+        index_data["notes"][note.id] = note.to_dict()
+
+        # Save updated index
+        save_index(index_data, vault_path)
+
+    except StorageError as e:
+        # Re-raise StorageError with more context
+        raise StorageError(f"Failed to create note '{note.id}': {e}", original_error=e)
+
+
+def _get_note_internal(note_id: str, vault_path: str | None = None) -> Note:
+    """
+    Get a note from the vault by its ID.
+
+    This internal function handles the complete process of retrieving a note:
+    1. Loading the current index
+    2. Checking if the note ID exists
+    3. Reading the note's content
+    4. Creating and returning a Note object
+
+    Args:
+        note_id: The unique identifier of the note to retrieve
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Returns:
+        The retrieved Note object
+
+    Raises:
+        NoteNotFoundError: If the note doesn't exist in the index
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> note = _get_note_internal('123e4567-e89b-12d3-a456-426614174000')
+        >>> print(note.title)
+        'My Note'
+    """
+    try:
+        # Load current index
+        index_data = load_index(vault_path)
+        if "notes" not in index_data or note_id not in index_data["notes"]:
+            raise NoteNotFoundError(note_id)
+
+        # Get note metadata and content
+        note_data = index_data["notes"][note_id]
+        content = read_note_content(note_id, vault_path)
+
+        # Create and return Note object
+        return Note.from_dict(note_data, content)
+
+    except (NoteNotFoundError, StorageError) as e:
+        # Re-raise the original error
+        raise
+    except Exception as e:
+        # Wrap unexpected errors in StorageError
+        raise StorageError(f"Failed to get note '{note_id}': {e}", original_error=e)
+
+
+def _delete_note_internal(note_id: str, vault_path: str | None = None) -> None:
+    """
+    Delete a note from the vault.
+
+    This internal function handles the complete process of deleting a note:
+    1. Loading the current index
+    2. Checking if the note ID exists
+    3. Getting the note's filename
+    4. Removing the note's file
+    5. Removing the note from the index
+    6. Saving the updated index
+
+    Args:
+        note_id: The unique identifier of the note to delete
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Raises:
+        NoteNotFoundError: If the note doesn't exist in the index
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> _delete_note_internal('123e4567-e89b-12d3-a456-426614174000')
+    """
+    try:
+        # Load current index
+        index_data = load_index(vault_path)
+        if "notes" not in index_data or note_id not in index_data["notes"]:
+            raise NoteNotFoundError(note_id)
+
+        # Get note filename and remove file
+        note_data = index_data["notes"][note_id]
+        filename = note_data.get("filename")
+        if filename:
+            note_path = _get_note_file_path(note_id, vault_path)
+            try:
+                os.remove(note_path)
+            except FileNotFoundError:
+                # Ignore if file is already gone
+                pass
+            except OSError as e:
+                raise StorageError(f"Failed to remove note file: {e}", original_error=e)
+
+        # Remove note from index and save
+        del index_data["notes"][note_id]
+        save_index(index_data, vault_path)
+
+    except (NoteNotFoundError, StorageError) as e:
+        # Re-raise the original error
+        raise
+    except Exception as e:
+        # Wrap unexpected errors in StorageError
+        raise StorageError(f"Failed to delete note '{note_id}': {e}", original_error=e)
