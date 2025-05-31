@@ -125,10 +125,23 @@ def handle_delete(args: argparse.Namespace) -> None:
     """
     Handle the 'delete' command to remove a note.
 
+    This function deletes a note by its title. If the note is not found
+    or there are storage errors, appropriate error messages are displayed.
+
     Args:
-        args: Parsed command line arguments
+        args: Parsed command line arguments containing the note title
     """
-    print(f"Deleting note: {args.title}")
+    try:
+        # Delete the note
+        vault.delete_note_by_title(args.title)
+        print(f"\nNote '{args.title}' deleted successfully!")
+
+    except NoteNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except StorageError as e:
+        print(f"Error: Failed to delete note - {e}")
+        sys.exit(1)
 
 
 def handle_export(args: argparse.Namespace) -> None:

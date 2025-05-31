@@ -3,7 +3,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from cli import handle_add, handle_list, handle_view
+from cli import handle_add, handle_delete, handle_list, handle_view
 from vault.errors import DuplicateTitleError, NoteNotFoundError, StorageError
 
 
@@ -177,6 +177,44 @@ class TestCLI(unittest.TestCase):
         ):
             mock_get.side_effect = StorageError("Test error")
             handle_list(self.args)
+            mock_exit.assert_called_once_with(1)
+
+    def test_handle_delete_success(self):
+        """Test handle_delete with successful note deletion."""
+        self.args.title = "Test Note"
+
+        with (
+            patch("vault.core.delete_note_by_title") as mock_delete,
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_delete(self.args)
+            mock_delete.assert_called_once_with("Test Note")
+            self.assertEqual(
+                mock_stdout.getvalue().strip(), "Note 'Test Note' deleted successfully!"
+            )
+
+    def test_handle_delete_not_found(self):
+        """Test handle_delete with note not found error."""
+        self.args.title = "Test Note"
+
+        with (
+            patch("vault.core.delete_note_by_title") as mock_delete,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_delete.side_effect = NoteNotFoundError("Test Note")
+            handle_delete(self.args)
+            mock_exit.assert_called_once_with(1)
+
+    def test_handle_delete_storage_error(self):
+        """Test handle_delete with storage error."""
+        self.args.title = "Test Note"
+
+        with (
+            patch("vault.core.delete_note_by_title") as mock_delete,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_delete.side_effect = StorageError("Test error")
+            handle_delete(self.args)
             mock_exit.assert_called_once_with(1)
 
 
