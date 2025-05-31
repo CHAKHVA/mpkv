@@ -1,10 +1,13 @@
 import json
 import os
 import os.path
+import shutil
+import tempfile
 import unittest
 import uuid
 from unittest.mock import mock_open, patch
 
+import vault.core as vault
 from vault.core import (
     NOTES_SUBDIR_NAME,
     VAULT_DIR_NAME,
@@ -624,6 +627,94 @@ class TestVaultPersistence(unittest.TestCase):
         self.assertIn("Failed to get note titles", str(context.exception))
         self.assertIsInstance(context.exception.original_error, StorageError)
         mock_load_index.assert_called_once()
+
+    def test_search_notes_success(self):
+        """Test search_notes with successful matches."""
+        # Create test notes
+        note1 = self.create_test_note("Test Note 1", "Content 1", ["tag1"])
+        note2 = self.create_test_note("Test Note 2", "Content 2", ["tag2"])
+        note3 = self.create_test_note("Other Note", "Test content", ["tag3"])
+
+        # Test search in title
+        results = vault.search_notes("Test")
+        self.assertEqual(len(results), 2)
+        self.assertEqual(
+            {note.title for note in results}, {"Test Note 1", "Test Note 2"}
+        )
+
+        # Test search in content
+        results = vault.search_notes("content")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].title, "Other Note")
+
+        # Test search in tags
+        results = vault.search_notes("tag1")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].title, "Test Note 1")
+
+    def test_search_notes_case_insensitive(self):
+        """Test search_notes with case-insensitive matching."""
+        # Create test note
+        self.create_test_note("Test Note", "Content", ["Tag"])
+
+        # Test different cases
+        results = vault.search_notes("test")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].title, "Test Note")
+
+        results = vault.search_notes("TEST")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].title, "Test Note")
+
+        results = vault.search_notes("tag")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].title, "Test Note")
+
+    def test_search_notes_no_matches(self):
+        """Test search_notes with no matching notes."""
+        # Create test note
+        self.create_test_note("Test Note", "Content", ["tag"])
+
+        # Search for non-existent term
+        results = vault.search_notes("nonexistent")
+        self.assertEqual(len(results), 0)
+
+    def test_search_notes_empty_index(self):
+        """Test search_notes with empty index."""
+        # Ensure index is empty
+        self._clear_index()
+
+        # Search in empty index
+        results = vault.search_notes("test")
+        self.assertEqual(len(results), 0)
+
+    def test_search_notes_storage_error(self):
+        """Test search_notes with storage error."""
+        # Create test note
+        self.create_test_note("Test Note", "Content", ["tag"])
+
+        # Simulate storage error
+        with patch("mpkv.vault.core.load_index") as mock_load:
+            mock_load.side_effect = StorageError("Test error")
+            with self.assertRaises(StorageError) as context:
+                vault.search_notes("test")
+            self.assertIn("Failed to search notes", str(context.exception))
+
+    def test_search_notes_graceful_error_handling(self):
+        """Test search_notes gracefully handles errors for individual notes."""
+        # Create test notes
+        self.create_test_note("Test Note 1", "Content 1", ["tag1"])
+        self.create_test_note("Test Note 2", "Content 2", ["tag2"])
+
+        # Simulate error reading one note
+        with patch("mpkv.vault.core._get_note_internal") as mock_get:
+            mock_get.side_effect = [
+                StorageError("Test error"),
+                self.create_test_note("Test Note 2", "Content 2", ["tag2"]),
+            ]
+            results = vault.search_notes("Test")
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0].title, "Test Note 2")
 
 
 if __name__ == "__main__":

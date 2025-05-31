@@ -653,3 +653,78 @@ def get_all_titles(vault_path: str | None = None) -> list[str]:
     except StorageError as e:
         # Re-raise StorageError with more context
         raise StorageError(f"Failed to get note titles: {e}", original_error=e)
+
+
+def search_notes(term: str, vault_path: str | None = None) -> list[Note]:
+    """
+    Search for notes containing the given term.
+
+    This function searches through all notes in the vault for the given term.
+    The search is case-insensitive and looks in:
+    1. Note titles
+    2. Note tags
+    3. Note content
+
+    Args:
+        term: The search term to look for
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Returns:
+        A list of Note objects that match the search term
+
+    Raises:
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> search_notes("important")
+        [<Note title="Important Meeting", ...>, <Note title="Tasks", ...>]
+    """
+    try:
+        # Load index
+        index_data = load_index(vault_path)
+        if "notes" not in index_data:
+            return []
+
+        # Convert search term to lowercase for case-insensitive search
+        term_lower = term.lower()
+        matching_notes = []
+
+        # Search through each note
+        for note_id, note_data in index_data["notes"].items():
+            # Check title
+            title = note_data.get("title", "").lower()
+            if term_lower in title:
+                try:
+                    note = _get_note_internal(note_id, vault_path)
+                    matching_notes.append(note)
+                    continue
+                except (NoteNotFoundError, StorageError):
+                    # Skip this note if we can't read it
+                    continue
+
+            # Check tags
+            tags = [tag.lower() for tag in note_data.get("tags", [])]
+            if any(term_lower in tag for tag in tags):
+                try:
+                    note = _get_note_internal(note_id, vault_path)
+                    matching_notes.append(note)
+                    continue
+                except (NoteNotFoundError, StorageError):
+                    # Skip this note if we can't read it
+                    continue
+
+            # Check content
+            try:
+                content = read_note_content(note_id, vault_path).lower()
+                if term_lower in content:
+                    note = _get_note_internal(note_id, vault_path)
+                    matching_notes.append(note)
+            except (NoteNotFoundError, StorageError):
+                # Skip this note if we can't read it
+                continue
+
+        return matching_notes
+
+    except StorageError as e:
+        # Re-raise StorageError with more context
+        raise StorageError(f"Failed to search notes: {e}", original_error=e)

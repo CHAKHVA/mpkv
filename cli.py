@@ -115,10 +115,28 @@ def handle_search(args: argparse.Namespace) -> None:
     """
     Handle the 'search' command to find notes.
 
+    This function searches through all notes for the given term, looking in
+    titles, tags, and content. Results are displayed as a list of matching
+    note titles.
+
     Args:
-        args: Parsed command line arguments
+        args: Parsed command line arguments containing the search term
     """
-    print(f"Searching for: {args.query}")
+    try:
+        # Search for notes
+        matching_notes = vault.search_notes(args.term)
+
+        # Display results
+        if matching_notes:
+            print("\nMatching notes:")
+            for note in matching_notes:
+                print(f"- {note.title}")
+        else:
+            print("\nNo matching notes found.")
+
+    except StorageError as e:
+        print(f"Error: Failed to search notes - {e}")
+        sys.exit(1)
 
 
 def handle_delete(args: argparse.Namespace) -> None:
@@ -199,7 +217,7 @@ def main() -> None:
 
     # Search command
     search_parser = subparsers.add_parser("search", help="Search notes")
-    search_parser.add_argument("query", help="Search query")
+    search_parser.add_argument("term", help="Search term to look for in notes")
     search_parser.set_defaults(func=handle_search)
 
     # Delete command

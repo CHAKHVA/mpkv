@@ -3,7 +3,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from cli import handle_add, handle_delete, handle_list, handle_view
+from cli import handle_add, handle_delete, handle_list, handle_search, handle_view
 from vault.errors import DuplicateTitleError, NoteNotFoundError, StorageError
 
 
@@ -215,6 +215,45 @@ class TestCLI(unittest.TestCase):
         ):
             mock_delete.side_effect = StorageError("Test error")
             handle_delete(self.args)
+            mock_exit.assert_called_once_with(1)
+
+    def test_handle_search_success(self):
+        """Test handle_search with successful matches."""
+        self.args.term = "test"
+        mock_notes = [
+            type("Note", (), {"title": "Test Note 1"})(),
+            type("Note", (), {"title": "Test Note 2"})(),
+        ]
+
+        with (
+            patch("vault.core.search_notes", return_value=mock_notes),
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_search(self.args)
+            expected_output = "\nMatching notes:\n- Test Note 1\n- Test Note 2"
+            self.assertEqual(mock_stdout.getvalue().strip(), expected_output.strip())
+
+    def test_handle_search_no_matches(self):
+        """Test handle_search with no matching notes."""
+        self.args.term = "nonexistent"
+
+        with (
+            patch("vault.core.search_notes", return_value=[]),
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_search(self.args)
+            self.assertEqual(mock_stdout.getvalue().strip(), "No matching notes found.")
+
+    def test_handle_search_storage_error(self):
+        """Test handle_search with storage error."""
+        self.args.term = "test"
+
+        with (
+            patch("vault.core.search_notes") as mock_search,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_search.side_effect = StorageError("Test error")
+            handle_search(self.args)
             mock_exit.assert_called_once_with(1)
 
 
