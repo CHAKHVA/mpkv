@@ -763,6 +763,115 @@ class TestVaultPersistence(unittest.TestCase):
                 vault.get_all_tags_with_counts()
             self.assertIn("Failed to get tag counts", str(context.exception))
 
+    def test_export_notes_success(self):
+        """Test export_notes with successful export."""
+        # Create test notes
+        self.create_test_note("Test Note 1", "Content 1", ["tag1"])
+        self.create_test_note("Test Note 2", "Content 2", ["tag2"])
+
+        # Create temporary directory for export
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Export notes
+            vault.export_notes(temp_dir)
+
+            # Verify files were created
+            files = os.listdir(temp_dir)
+            self.assertEqual(len(files), 2)
+            self.assertIn("Test_Note_1.txt", files)
+            self.assertIn("Test_Note_2.txt", files)
+
+            # Verify file contents
+            with open(
+                os.path.join(temp_dir, "Test_Note_1.txt"), "r", encoding="utf-8"
+            ) as f:
+                content = f.read()
+                self.assertIn("Title: Test Note 1", content)
+                self.assertIn("Content 1", content)
+
+    def test_export_notes_filename_sanitization(self):
+        """Test export_notes with filename sanitization."""
+        # Create test note with special characters
+        self.create_test_note("Test/Note*With?Special:Chars", "Content")
+
+        # Create temporary directory for export
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Export notes
+            vault.export_notes(temp_dir)
+
+            # Verify file was created with sanitized name
+            files = os.listdir(temp_dir)
+            self.assertEqual(len(files), 1)
+            self.assertIn("Test_Note_With_Special_Chars.txt", files)
+
+    def test_export_notes_empty_title(self):
+        """Test export_notes with empty title."""
+        # Create test note with empty title
+        self.create_test_note("", "Content")
+
+        # Create temporary directory for export
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Export notes
+            vault.export_notes(temp_dir)
+
+            # Verify file was created with default name
+            files = os.listdir(temp_dir)
+            self.assertEqual(len(files), 1)
+            self.assertIn("untitled.txt", files)
+
+    def test_export_notes_no_notes(self):
+        """Test export_notes with no notes."""
+        # Create temporary directory for export
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Export notes
+            vault.export_notes(temp_dir)
+
+            # Verify no files were created
+            self.assertEqual(len(os.listdir(temp_dir)), 0)
+
+    def test_export_notes_storage_error(self):
+        """Test export_notes with storage error."""
+        # Create test note
+        self.create_test_note("Test Note", "Content")
+
+        # Create temporary directory for export
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Simulate storage error
+            with patch("vault.core.load_index") as mock_load:
+                mock_load.side_effect = StorageError("Test error")
+                with self.assertRaises(StorageError) as context:
+                    vault.export_notes(temp_dir)
+                self.assertIn("Failed to export notes", str(context.exception))
+
+    def test_export_notes_os_error(self):
+        """Test export_notes with OSError."""
+        # Create test note
+        self.create_test_note("Test Note", "Content")
+
+        # Simulate OSError
+        with patch("os.makedirs") as mock_makedirs:
+            mock_makedirs.side_effect = OSError("Permission denied")
+            with self.assertRaises(OSError) as context:
+                vault.export_notes("/invalid/path")
+            self.assertIn("Failed to create output directory", str(context.exception))
+
+    def test_export_notes_graceful_error_handling(self):
+        """Test export_notes gracefully handles errors for individual notes."""
+        # Create test notes
+        self.create_test_note("Test Note 1", "Content 1")
+        self.create_test_note("Test Note 2", "Content 2")
+
+        # Create temporary directory for export
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Simulate error reading one note
+            with patch("vault.core.read_note_content") as mock_read:
+                mock_read.side_effect = [StorageError("Test error"), "Content 2"]
+                vault.export_notes(temp_dir)
+
+                # Verify only the successful note was exported
+                files = os.listdir(temp_dir)
+                self.assertEqual(len(files), 1)
+                self.assertIn("Test_Note_2.txt", files)
+
 
 if __name__ == "__main__":
     unittest.main()

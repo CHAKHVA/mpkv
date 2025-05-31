@@ -768,3 +768,70 @@ def get_all_tags_with_counts(vault_path: str | None = None) -> dict[str, int]:
     except StorageError as e:
         # Re-raise StorageError with more context
         raise StorageError(f"Failed to get tag counts: {e}", original_error=e)
+
+
+def export_notes(output_dir: str, vault_path: str | None = None) -> None:
+    """
+    Export all notes to individual text files in the specified directory.
+
+    This function exports all notes from the vault to individual text files in
+    the specified output directory. Each file is named after the note's title
+    (sanitized for filesystem use) and contains the note's title and content.
+
+    Args:
+        output_dir: The directory to export notes to
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Raises:
+        StorageError: If there are any file system errors during the process
+        OSError: If the output directory cannot be created
+
+    Examples:
+        >>> export_notes("/path/to/export")
+    """
+    try:
+        # Load index
+        index_data = load_index(vault_path)
+        if "notes" not in index_data:
+            return
+
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Export each note
+        for note_id, note_data in index_data["notes"].items():
+            try:
+                # Get note content
+                content = read_note_content(note_id, vault_path)
+                title = note_data.get("title", "Untitled")
+
+                # Sanitize title for filename
+                # Replace invalid characters with underscores
+                safe_title = "".join(
+                    c if c.isalnum() or c in " -_" else "_" for c in title
+                )
+                # Replace spaces with underscores
+                safe_title = safe_title.replace(" ", "_")
+                # Ensure filename is not empty
+                if not safe_title:
+                    safe_title = "untitled"
+
+                # Construct output path
+                output_path = os.path.join(output_dir, f"{safe_title}.txt")
+
+                # Write note to file
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(f"Title: {title}\n\n")
+                    f.write(content)
+
+            except (NoteNotFoundError, StorageError) as e:
+                # Log error but continue with other notes
+                logger.warning(f"Failed to export note '{note_id}': {e}")
+                continue
+
+    except OSError as e:
+        # Re-raise OSError for directory creation issues
+        raise OSError(f"Failed to create output directory '{output_dir}': {e}")
+    except StorageError as e:
+        # Re-raise StorageError with more context
+        raise StorageError(f"Failed to export notes: {e}", original_error=e)

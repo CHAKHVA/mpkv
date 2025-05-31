@@ -164,12 +164,29 @@ def handle_delete(args: argparse.Namespace) -> None:
 
 def handle_export(args: argparse.Namespace) -> None:
     """
-    Handle the 'export' command to export notes.
+    Handle the 'export' command to export notes to files.
+
+    This function exports all notes from the vault to individual text files
+    in the specified output directory. Each file is named after the note's
+    title and contains both the title and content.
 
     Args:
-        args: Parsed command line arguments
+        args: Parsed command line arguments containing the output directory
     """
-    print(f"Exporting notes to: {args.output}")
+    try:
+        # Get output directory
+        output_dir = args.output_dir or "mpkv_export"
+
+        # Export notes
+        vault.export_notes(output_dir)
+        print(f"\nNotes exported successfully to: {output_dir}")
+
+    except OSError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except StorageError as e:
+        print(f"Error: Failed to export notes - {e}")
+        sys.exit(1)
 
 
 def handle_tags(args: argparse.Namespace) -> None:
@@ -245,8 +262,11 @@ def main() -> None:
     delete_parser.set_defaults(func=handle_delete)
 
     # Export command
-    export_parser = subparsers.add_parser("export", help="Export notes")
-    export_parser.add_argument("output", help="Output directory for exported notes")
+    export_parser = subparsers.add_parser("export", help="Export notes to text files")
+    export_parser.add_argument(
+        "--output-dir",
+        help="Directory to export notes to (default: mpkv_export)",
+    )
     export_parser.set_defaults(func=handle_export)
 
     # Tags command

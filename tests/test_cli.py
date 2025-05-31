@@ -6,6 +6,7 @@ from unittest.mock import patch
 from cli import (
     handle_add,
     handle_delete,
+    handle_export,
     handle_list,
     handle_search,
     handle_tags,
@@ -294,6 +295,60 @@ class TestCLI(unittest.TestCase):
         ):
             mock_get.side_effect = StorageError("Test error")
             handle_tags(self.args)
+            mock_exit.assert_called_once_with(1)
+
+    def test_handle_export_success(self):
+        """Test handle_export with successful export."""
+        self.args.output_dir = "test_export"
+
+        with (
+            patch("vault.core.export_notes") as mock_export,
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_export(self.args)
+            mock_export.assert_called_once_with("test_export")
+            self.assertEqual(
+                mock_stdout.getvalue().strip(),
+                "Notes exported successfully to: test_export",
+            )
+
+    def test_handle_export_default_dir(self):
+        """Test handle_export with default output directory."""
+        self.args.output_dir = None
+
+        with (
+            patch("vault.core.export_notes") as mock_export,
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_export(self.args)
+            mock_export.assert_called_once_with("mpkv_export")
+            self.assertEqual(
+                mock_stdout.getvalue().strip(),
+                "Notes exported successfully to: mpkv_export",
+            )
+
+    def test_handle_export_storage_error(self):
+        """Test handle_export with storage error."""
+        self.args.output_dir = "test_export"
+
+        with (
+            patch("vault.core.export_notes") as mock_export,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_export.side_effect = StorageError("Test error")
+            handle_export(self.args)
+            mock_exit.assert_called_once_with(1)
+
+    def test_handle_export_os_error(self):
+        """Test handle_export with OSError."""
+        self.args.output_dir = "test_export"
+
+        with (
+            patch("vault.core.export_notes") as mock_export,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_export.side_effect = OSError("Permission denied")
+            handle_export(self.args)
             mock_exit.assert_called_once_with(1)
 
 
