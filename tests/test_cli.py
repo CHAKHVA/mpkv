@@ -1,14 +1,10 @@
-"""
-Tests for the MPKV CLI functionality.
-"""
-
 import io
 import sys
 import unittest
 from unittest.mock import patch
 
-from cli import handle_add
-from vault.errors import DuplicateTitleError, StorageError
+from cli import handle_add, handle_view
+from vault.errors import DuplicateTitleError, NoteNotFoundError, StorageError
 
 
 class TestCLI(unittest.TestCase):
@@ -116,6 +112,42 @@ class TestCLI(unittest.TestCase):
         ):
             mock_create.side_effect = ValueError("Invalid data")
             handle_add(self.args)
+            mock_exit.assert_called_once_with(1)
+
+    def test_handle_view_success(self):
+        """Test handle_view with successful note retrieval."""
+        self.args.title = "Test Note"
+        mock_note = type("Note", (), {"content": "Test content"})()
+
+        with (
+            patch("vault.core.get_note_by_title", return_value=mock_note),
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_view(self.args)
+            self.assertEqual(mock_stdout.getvalue().strip(), "Test content")
+
+    def test_handle_view_not_found(self):
+        """Test handle_view with note not found error."""
+        self.args.title = "Test Note"
+
+        with (
+            patch("vault.core.get_note_by_title") as mock_get,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_get.side_effect = NoteNotFoundError("Test Note")
+            handle_view(self.args)
+            mock_exit.assert_called_once_with(1)
+
+    def test_handle_view_storage_error(self):
+        """Test handle_view with storage error."""
+        self.args.title = "Test Note"
+
+        with (
+            patch("vault.core.get_note_by_title") as mock_get,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_get.side_effect = StorageError("Test error")
+            handle_view(self.args)
             mock_exit.assert_called_once_with(1)
 
 

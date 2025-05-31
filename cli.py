@@ -65,10 +65,23 @@ def handle_view(args: argparse.Namespace) -> None:
     """
     Handle the 'view' command to display a note.
 
+    This function retrieves and displays a note by its title. If the note is not found
+    or there are storage errors, appropriate error messages are displayed.
+
     Args:
-        args: Parsed command line arguments
+        args: Parsed command line arguments containing the note title
     """
-    print(f"Viewing note: {args.title}")
+    try:
+        # Get the note
+        note = vault.get_note_by_title(args.title)
+        print(f"\n{note.content}")
+
+    except NoteNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except StorageError as e:
+        print(f"Error: Failed to retrieve note - {e}")
+        sys.exit(1)
 
 
 def handle_list(args: argparse.Namespace) -> None:
