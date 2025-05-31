@@ -281,6 +281,13 @@ class TestNote(unittest.TestCase):
         self.assertIn(self.valid_title, repr_str)
         self.assertIn("Note", repr_str)
 
+    def test_str(self):
+        """Test the __str__ method of Note."""
+        note = Note(title=self.valid_title, content=self.valid_content)
+        str_output = str(note)
+        self.assertIn(self.valid_title, str_output)
+        self.assertIn(self.valid_content, str_output)
+
 
 if __name__ == "__main__":
     unittest.main()
