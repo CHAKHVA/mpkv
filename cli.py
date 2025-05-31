@@ -1,4 +1,5 @@
 import argparse
+import io
 import sys
 from typing import Any
 
@@ -10,12 +11,54 @@ def handle_add(args: argparse.Namespace) -> None:
     """
     Handle the 'add' command to create a new note.
 
+    This function creates a new note with the given or prompted title, content, and tags.
+    If any of these are not provided as arguments, it will interactively prompt the user.
+
     Args:
-        args: Parsed command line arguments
+        args: Parsed command line arguments containing title, content, and tags
     """
-    print(f"Adding note with title: {args.title}")
-    print(f"Content: {args.content}")
-    print(f"Tags: {args.tags}")
+    # Get title
+    title = args.title
+    while not title:
+        title = input("Enter note title: ").strip()
+        if not title:
+            print("Title cannot be empty. Please try again.")
+
+    # Get tags
+    tags = args.tags
+    if tags is None:
+        tags_input = input("Enter tags (comma-separated, optional): ").strip()
+        tags = [tag.strip() for tag in tags_input.split(",")] if tags_input else None
+
+    # Get content
+    content = args.content
+    if content is None:
+        print("\nEnter note content (empty line to finish):")
+        lines = []
+        while True:
+            try:
+                line = input()
+                if not line:
+                    break
+                lines.append(line)
+            except EOFError:
+                break
+        content = "\n".join(lines)
+
+    try:
+        # Create the note
+        note = vault.create_note(title, content, tags)
+        print(f"\nNote '{note.title}' created successfully!")
+
+    except ValueError as e:
+        print(f"Error: Invalid note data - {e}")
+        sys.exit(1)
+    except DuplicateTitleError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except StorageError as e:
+        print(f"Error: Failed to create note - {e}")
+        sys.exit(1)
 
 
 def handle_view(args: argparse.Namespace) -> None:
