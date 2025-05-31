@@ -174,12 +174,31 @@ def handle_export(args: argparse.Namespace) -> None:
 
 def handle_tags(args: argparse.Namespace) -> None:
     """
-    Handle the 'tags' command to manage tags.
+    Handle the 'tags' command to display tag statistics.
+
+    This function retrieves all tags and their usage counts from the vault,
+    then displays them in alphabetical order. If there are no tags,
+    displays an appropriate message.
 
     Args:
         args: Parsed command line arguments
     """
-    print("Managing tags")
+    try:
+        # Get tag counts
+        tag_counts = vault.get_all_tags_with_counts()
+
+        # Display results
+        if tag_counts:
+            print("\nTags:")
+            for tag in sorted(tag_counts.keys()):
+                count = tag_counts[tag]
+                print(f"- {tag} ({count} note{'s' if count != 1 else ''})")
+        else:
+            print("\nNo tags found.")
+
+    except StorageError as e:
+        print(f"Error: Failed to get tags - {e}")
+        sys.exit(1)
 
 
 def main() -> None:
@@ -231,7 +250,9 @@ def main() -> None:
     export_parser.set_defaults(func=handle_export)
 
     # Tags command
-    tags_parser = subparsers.add_parser("tags", help="Manage tags")
+    tags_parser = subparsers.add_parser(
+        "tags", help="List all tags and their usage counts"
+    )
     tags_parser.set_defaults(func=handle_tags)
 
     # Parse arguments and execute command

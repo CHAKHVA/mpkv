@@ -728,3 +728,43 @@ def search_notes(term: str, vault_path: str | None = None) -> list[Note]:
     except StorageError as e:
         # Re-raise StorageError with more context
         raise StorageError(f"Failed to search notes: {e}", original_error=e)
+
+
+def get_all_tags_with_counts(vault_path: str | None = None) -> dict[str, int]:
+    """
+    Get all tags and their usage counts from the vault.
+
+    This function loads the vault index and aggregates the count of each tag
+    across all notes. Tags are returned in a dictionary where keys are tag names
+    and values are the number of notes using that tag.
+
+    Args:
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Returns:
+        A dictionary mapping tag names to their usage counts
+
+    Raises:
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> get_all_tags_with_counts()
+        {'work': 3, 'personal': 2, 'ideas': 1}
+    """
+    try:
+        # Load index
+        index_data = load_index(vault_path)
+        if "notes" not in index_data:
+            return {}
+
+        # Aggregate tag counts
+        tag_counts: dict[str, int] = {}
+        for note_data in index_data["notes"].values():
+            for tag in note_data.get("tags", []):
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+        return tag_counts
+
+    except StorageError as e:
+        # Re-raise StorageError with more context
+        raise StorageError(f"Failed to get tag counts: {e}", original_error=e)

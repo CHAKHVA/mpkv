@@ -716,6 +716,53 @@ class TestVaultPersistence(unittest.TestCase):
             self.assertEqual(len(results), 1)
             self.assertEqual(results[0].title, "Test Note 2")
 
+    def test_get_all_tags_with_counts_success(self):
+        """Test get_all_tags_with_counts with successful retrieval."""
+        # Create test notes with tags
+        self.create_test_note("Note 1", "Content 1", ["work", "personal"])
+        self.create_test_note("Note 2", "Content 2", ["work", "ideas"])
+        self.create_test_note("Note 3", "Content 3", ["personal"])
+
+        # Get tag counts
+        tag_counts = vault.get_all_tags_with_counts()
+
+        # Verify results
+        self.assertEqual(tag_counts, {"work": 2, "personal": 2, "ideas": 1})
+
+    def test_get_all_tags_with_counts_empty(self):
+        """Test get_all_tags_with_counts with no tags."""
+        # Create test note without tags
+        self.create_test_note("Note 1", "Content 1")
+
+        # Get tag counts
+        tag_counts = vault.get_all_tags_with_counts()
+
+        # Verify results
+        self.assertEqual(tag_counts, {})
+
+    def test_get_all_tags_with_counts_no_notes(self):
+        """Test get_all_tags_with_counts with no notes."""
+        # Ensure index is empty
+        self._clear_index()
+
+        # Get tag counts
+        tag_counts = vault.get_all_tags_with_counts()
+
+        # Verify results
+        self.assertEqual(tag_counts, {})
+
+    def test_get_all_tags_with_counts_storage_error(self):
+        """Test get_all_tags_with_counts with storage error."""
+        # Create test note
+        self.create_test_note("Note 1", "Content 1", ["tag1"])
+
+        # Simulate storage error
+        with patch("vault.core.load_index") as mock_load:
+            mock_load.side_effect = StorageError("Test error")
+            with self.assertRaises(StorageError) as context:
+                vault.get_all_tags_with_counts()
+            self.assertIn("Failed to get tag counts", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,14 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from cli import handle_add, handle_delete, handle_list, handle_search, handle_view
+from cli import (
+    handle_add,
+    handle_delete,
+    handle_list,
+    handle_search,
+    handle_tags,
+    handle_view,
+)
 from vault.errors import DuplicateTitleError, NoteNotFoundError, StorageError
 
 
@@ -254,6 +261,39 @@ class TestCLI(unittest.TestCase):
         ):
             mock_search.side_effect = StorageError("Test error")
             handle_search(self.args)
+            mock_exit.assert_called_once_with(1)
+
+    def test_handle_tags_success(self):
+        """Test handle_tags with successful tag retrieval."""
+        tag_counts = {"work": 2, "personal": 1, "ideas": 3}
+
+        with (
+            patch("vault.core.get_all_tags_with_counts", return_value=tag_counts),
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_tags(self.args)
+            expected_output = (
+                "\nTags:\n- ideas (3 notes)\n- personal (1 note)\n- work (2 notes)"
+            )
+            self.assertEqual(mock_stdout.getvalue().strip(), expected_output.strip())
+
+    def test_handle_tags_no_tags(self):
+        """Test handle_tags with no tags."""
+        with (
+            patch("vault.core.get_all_tags_with_counts", return_value={}),
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_tags(self.args)
+            self.assertEqual(mock_stdout.getvalue().strip(), "No tags found.")
+
+    def test_handle_tags_storage_error(self):
+        """Test handle_tags with storage error."""
+        with (
+            patch("vault.core.get_all_tags_with_counts") as mock_get,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_get.side_effect = StorageError("Test error")
+            handle_tags(self.args)
             mock_exit.assert_called_once_with(1)
 
 
