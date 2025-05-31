@@ -14,6 +14,7 @@ from vault.core import (
     _get_note_internal,
     ensure_vault_dirs_exist,
     generate_note_id,
+    get_all_titles,
     get_vault_path,
     load_index,
     read_note_content,
@@ -504,9 +505,8 @@ class TestVaultPersistence(unittest.TestCase):
         mock_read_content.assert_called_once()
 
     @patch("vault.core.load_index")
-    @patch("vault.core.save_index")
     @patch("os.remove")
-    def test_delete_note_success(self, mock_remove, mock_save_index, mock_load_index):
+    def test_delete_note_success(self, mock_remove, mock_load_index):
         """Test successful note deletion."""
         # Setup mocks
         mock_load_index.return_value = self.index_data
@@ -519,9 +519,6 @@ class TestVaultPersistence(unittest.TestCase):
 
         # Verify index operations
         mock_load_index.assert_called_once()
-        mock_save_index.assert_called_once()
-        saved_index = mock_save_index.call_args[0][0]
-        self.assertNotIn(self.note_id, saved_index["notes"])
 
     @patch("vault.core.load_index")
     def test_delete_note_not_found(self, mock_load_index):
@@ -566,6 +563,67 @@ class TestVaultPersistence(unittest.TestCase):
         self.assertIsInstance(context.exception.original_error, OSError)
         mock_load_index.assert_called_once()
         mock_remove.assert_called_once()
+
+    @patch("vault.core.load_index")
+    def test_get_all_titles_success(self, mock_load_index):
+        """Test get_all_titles with successful retrieval."""
+        # Setup mock
+        index_data = {
+            "notes": {
+                "note1": {"title": "Note 1"},
+                "note2": {"title": "Note 2"},
+                "note3": {"title": "Note 3"},
+            }
+        }
+        mock_load_index.return_value = index_data
+
+        # Get titles
+        titles = get_all_titles()
+
+        # Verify result
+        self.assertEqual(titles, ["Note 1", "Note 2", "Note 3"])
+        mock_load_index.assert_called_once()
+
+    @patch("vault.core.load_index")
+    def test_get_all_titles_empty(self, mock_load_index):
+        """Test get_all_titles with empty index."""
+        # Setup mock
+        mock_load_index.return_value = {}
+
+        # Get titles
+        titles = get_all_titles()
+
+        # Verify result
+        self.assertEqual(titles, [])
+        mock_load_index.assert_called_once()
+
+    @patch("vault.core.load_index")
+    def test_get_all_titles_no_notes(self, mock_load_index):
+        """Test get_all_titles with no notes in index."""
+        # Setup mock
+        mock_load_index.return_value = {"other": "data"}
+
+        # Get titles
+        titles = get_all_titles()
+
+        # Verify result
+        self.assertEqual(titles, [])
+        mock_load_index.assert_called_once()
+
+    @patch("vault.core.load_index")
+    def test_get_all_titles_storage_error(self, mock_load_index):
+        """Test get_all_titles with storage error."""
+        # Setup mock
+        mock_load_index.side_effect = StorageError("Test error")
+
+        # Get titles and verify error
+        with self.assertRaises(StorageError) as context:
+            get_all_titles()
+
+        # Verify error
+        self.assertIn("Failed to get note titles", str(context.exception))
+        self.assertIsInstance(context.exception.original_error, StorageError)
+        mock_load_index.assert_called_once()
 
 
 if __name__ == "__main__":

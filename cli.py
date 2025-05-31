@@ -88,10 +88,27 @@ def handle_list(args: argparse.Namespace) -> None:
     """
     Handle the 'list' command to display all notes.
 
+    This function retrieves and displays all note titles in the vault.
+    If there are no notes, displays an appropriate message.
+
     Args:
         args: Parsed command line arguments
     """
-    print("Listing all notes")
+    try:
+        # Get all titles
+        titles = vault.get_all_titles()
+
+        # Display results
+        if titles:
+            print("\nNotes:")
+            for title in titles:
+                print(f"- {title}")
+        else:
+            print("\nNo notes found.")
+
+    except StorageError as e:
+        print(f"Error: Failed to list notes - {e}")
+        sys.exit(1)
 
 
 def handle_search(args: argparse.Namespace) -> None:

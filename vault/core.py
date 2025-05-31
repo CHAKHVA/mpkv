@@ -618,3 +618,38 @@ def delete_note_by_title(title: str, vault_path: str | None = None) -> None:
         raise StorageError(
             f"Failed to delete note with title '{title}': {e}", original_error=e
         )
+
+
+def get_all_titles(vault_path: str | None = None) -> list[str]:
+    """
+    Get a list of all note titles in the vault.
+
+    This function loads the vault index and extracts all note titles.
+    If there are no notes or the index is empty, returns an empty list.
+
+    Args:
+        vault_path: Optional custom vault path (resolved if not provided)
+
+    Returns:
+        A list of note titles
+
+    Raises:
+        StorageError: If there are any file system errors during the process
+
+    Examples:
+        >>> get_all_titles()
+        ['Note 1', 'Note 2', 'Note 3']
+    """
+    try:
+        # Load index and extract titles
+        index_data = load_index(vault_path)
+        if "notes" not in index_data:
+            return []
+
+        return [
+            note_data.get("title", "") for note_data in index_data["notes"].values()
+        ]
+
+    except StorageError as e:
+        # Re-raise StorageError with more context
+        raise StorageError(f"Failed to get note titles: {e}", original_error=e)

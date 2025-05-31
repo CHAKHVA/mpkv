@@ -3,7 +3,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from cli import handle_add, handle_view
+from cli import handle_add, handle_list, handle_view
 from vault.errors import DuplicateTitleError, NoteNotFoundError, StorageError
 
 
@@ -148,6 +148,35 @@ class TestCLI(unittest.TestCase):
         ):
             mock_get.side_effect = StorageError("Test error")
             handle_view(self.args)
+            mock_exit.assert_called_once_with(1)
+
+    def test_handle_list_success(self):
+        """Test handle_list with successful note retrieval."""
+        with (
+            patch("vault.core.get_all_titles", return_value=["Note 1", "Note 2"]),
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_list(self.args)
+            expected_output = "\nNotes:\n- Note 1\n- Note 2"
+            self.assertEqual(mock_stdout.getvalue().strip(), expected_output.strip())
+
+    def test_handle_list_empty(self):
+        """Test handle_list with no notes."""
+        with (
+            patch("vault.core.get_all_titles", return_value=[]),
+            patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+        ):
+            handle_list(self.args)
+            self.assertEqual(mock_stdout.getvalue().strip(), "No notes found.")
+
+    def test_handle_list_storage_error(self):
+        """Test handle_list with storage error."""
+        with (
+            patch("vault.core.get_all_titles") as mock_get,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_get.side_effect = StorageError("Test error")
+            handle_list(self.args)
             mock_exit.assert_called_once_with(1)
 
 
