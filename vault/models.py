@@ -113,9 +113,9 @@ class Note:
                 filename=data.get("filename"),
             )
         except KeyError as e:
-            raise ValueError(f"Missing required field: {e}")
+            raise ValueError(f"Missing required field: {e}") from e
         except ValueError as e:
-            raise ValueError(f"Invalid data format: {e}")
+            raise ValueError(f"Invalid data format: {e}") from e
 
     def __str__(self) -> str:
         """Return a string representation of the note.

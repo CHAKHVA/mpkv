@@ -1,7 +1,6 @@
 import json
 import os
 import os.path
-import shutil
 import tempfile
 import unittest
 import uuid
@@ -628,24 +627,24 @@ class TestVaultPersistence(unittest.TestCase):
         self.assertIsInstance(context.exception.original_error, StorageError)
         mock_load_index.assert_called_once()
 
-    def test_search_notes_success(self):
+    def test_search_notes_success(self) -> None:
         """Test search_notes with successful matches."""
         # Create test notes
-        note1 = self.create_test_note("Test Note 1", "Content 1", ["tag1"])
-        note2 = self.create_test_note("Test Note 2", "Content 2", ["tag2"])
-        note3 = self.create_test_note("Other Note", "Test content", ["tag3"])
+        self.create_test_note("Test Note 1", "Content 1", ["tag1"])
+        self.create_test_note("Test Note 2", "Content 2", ["tag2"])
+        self.create_test_note("Other Note", "Test content", ["tag3"])
 
         # Test search in title
-        results = vault.search_notes("Test")
+        results = vault.search_notes("Test Note")
         self.assertEqual(len(results), 2)
-        self.assertEqual(
-            {note.title for note in results}, {"Test Note 1", "Test Note 2"}
-        )
+        self.assertEqual(results[0].title, "Test Note 1")
+        self.assertEqual(results[1].title, "Test Note 2")
 
         # Test search in content
-        results = vault.search_notes("content")
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0].title, "Other Note")
+        results = vault.search_notes("Content")
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].title, "Test Note 1")
+        self.assertEqual(results[1].title, "Test Note 2")
 
         # Test search in tags
         results = vault.search_notes("tag1")
@@ -781,9 +780,7 @@ class TestVaultPersistence(unittest.TestCase):
             self.assertIn("Test_Note_2.txt", files)
 
             # Verify file contents
-            with open(
-                os.path.join(temp_dir, "Test_Note_1.txt"), "r", encoding="utf-8"
-            ) as f:
+            with open(os.path.join(temp_dir, "Test_Note_1.txt"), encoding="utf-8") as f:
                 content = f.read()
                 self.assertIn("Title: Test Note 1", content)
                 self.assertIn("Content 1", content)

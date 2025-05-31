@@ -146,15 +146,14 @@ def load_index(vault_path: str | None = None) -> dict:
     index_path = get_index_path(vault_path)
 
     try:
-        with open(index_path, "r", encoding="utf-8") as f:
+        with open(index_path, encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
-        logger.debug(f"Index file not found at {index_path}, returning empty dict")
         return {}
     except json.JSONDecodeError as e:
         error_msg = f"Invalid JSON in index file {index_path}: {e}"
         logger.error(error_msg)
-        raise StorageError(error_msg, original_error=e)
+        raise StorageError(error_msg, original_error=e) from e
 
 
 def save_index(index_data: dict, vault_path: str | None = None) -> None:
@@ -187,7 +186,7 @@ def save_index(index_data: dict, vault_path: str | None = None) -> None:
     except OSError as e:
         error_msg = f"Failed to save index to {index_path}: {e}"
         logger.error(error_msg)
-        raise StorageError(error_msg, original_error=e)
+        raise StorageError(error_msg, original_error=e) from e
 
 
 def generate_note_id() -> str:
@@ -255,14 +254,14 @@ def read_note_content(note_id: str, vault_path: str | None = None) -> str:
     note_path = _get_note_file_path(note_id, vault_path)
 
     try:
-        with open(note_path, "r", encoding="utf-8") as f:
+        with open(note_path, encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        raise NoteNotFoundError(note_id)
+        raise NoteNotFoundError(note_id) from None
     except OSError as e:
         error_msg = f"Failed to read note content from {note_path}: {e}"
         logger.error(error_msg)
-        raise StorageError(error_msg, original_error=e)
+        raise StorageError(error_msg, original_error=e) from e
 
 
 def write_note_content(
@@ -296,7 +295,7 @@ def write_note_content(
     except OSError as e:
         error_msg = f"Failed to write note content to {note_path}: {e}"
         logger.error(error_msg)
-        raise StorageError(error_msg, original_error=e)
+        raise StorageError(error_msg, original_error=e) from e
 
 
 def _create_note_internal(note: Note, vault_path: str | None = None) -> None:
@@ -337,7 +336,9 @@ def _create_note_internal(note: Note, vault_path: str | None = None) -> None:
 
     except StorageError as e:
         # Re-raise StorageError with more context
-        raise StorageError(f"Failed to create note '{note.id}': {e}", original_error=e)
+        raise StorageError(
+            f"Failed to create note '{note.id}': {e}", original_error=e
+        ) from e
 
 
 def _get_note_internal(note_id: str, vault_path: str | None = None) -> Note:
@@ -384,7 +385,9 @@ def _get_note_internal(note_id: str, vault_path: str | None = None) -> Note:
         raise
     except Exception as e:
         # Wrap unexpected errors in StorageError
-        raise StorageError(f"Failed to get note '{note_id}': {e}", original_error=e)
+        raise StorageError(
+            f"Failed to get note '{note_id}': {e}", original_error=e
+        ) from e
 
 
 def _delete_note_internal(note_id: str, vault_path: str | None = None) -> None:
@@ -427,7 +430,9 @@ def _delete_note_internal(note_id: str, vault_path: str | None = None) -> None:
                 # Ignore if file is already gone
                 pass
             except OSError as e:
-                raise StorageError(f"Failed to remove note file: {e}", original_error=e)
+                raise StorageError(
+                    f"Failed to remove note file: {e}", original_error=e
+                ) from e
 
         # Remove note from index and save
         del index_data["notes"][note_id]
@@ -438,7 +443,9 @@ def _delete_note_internal(note_id: str, vault_path: str | None = None) -> None:
         raise
     except Exception as e:
         # Wrap unexpected errors in StorageError
-        raise StorageError(f"Failed to delete note '{note_id}': {e}", original_error=e)
+        raise StorageError(
+            f"Failed to delete note '{note_id}': {e}", original_error=e
+        ) from e
 
 
 def _find_note_id_by_title(title: str, vault_path: str | None = None) -> str | None:
@@ -477,7 +484,7 @@ def _find_note_id_by_title(title: str, vault_path: str | None = None) -> str | N
         # Re-raise StorageError with more context
         raise StorageError(
             f"Failed to find note with title '{title}': {e}", original_error=e
-        )
+        ) from e
 
 
 def create_note(
@@ -540,7 +547,7 @@ def create_note(
         # Re-raise StorageError with more context
         raise StorageError(
             f"Failed to create note with title '{title}': {e}", original_error=e
-        )
+        ) from e
 
 
 def get_note_by_title(title: str, vault_path: str | None = None) -> Note:
@@ -581,7 +588,7 @@ def get_note_by_title(title: str, vault_path: str | None = None) -> Note:
         # Wrap unexpected errors in StorageError
         raise StorageError(
             f"Failed to get note with title '{title}': {e}", original_error=e
-        )
+        ) from e
 
 
 def delete_note_by_title(title: str, vault_path: str | None = None) -> None:
@@ -617,7 +624,7 @@ def delete_note_by_title(title: str, vault_path: str | None = None) -> None:
         # Wrap unexpected errors in StorageError
         raise StorageError(
             f"Failed to delete note with title '{title}': {e}", original_error=e
-        )
+        ) from e
 
 
 def get_all_titles(vault_path: str | None = None) -> list[str]:
@@ -652,7 +659,7 @@ def get_all_titles(vault_path: str | None = None) -> list[str]:
 
     except StorageError as e:
         # Re-raise StorageError with more context
-        raise StorageError(f"Failed to get note titles: {e}", original_error=e)
+        raise StorageError(f"Failed to get note titles: {e}", original_error=e) from e
 
 
 def search_notes(term: str, vault_path: str | None = None) -> list[Note]:
@@ -727,7 +734,7 @@ def search_notes(term: str, vault_path: str | None = None) -> list[Note]:
 
     except StorageError as e:
         # Re-raise StorageError with more context
-        raise StorageError(f"Failed to search notes: {e}", original_error=e)
+        raise StorageError(f"Failed to search notes: {e}", original_error=e) from e
 
 
 def get_all_tags_with_counts(vault_path: str | None = None) -> dict[str, int]:
@@ -767,7 +774,7 @@ def get_all_tags_with_counts(vault_path: str | None = None) -> dict[str, int]:
 
     except StorageError as e:
         # Re-raise StorageError with more context
-        raise StorageError(f"Failed to get tag counts: {e}", original_error=e)
+        raise StorageError(f"Failed to get tag counts: {e}", original_error=e) from e
 
 
 def export_notes(output_dir: str, vault_path: str | None = None) -> None:
@@ -831,7 +838,7 @@ def export_notes(output_dir: str, vault_path: str | None = None) -> None:
 
     except OSError as e:
         # Re-raise OSError for directory creation issues
-        raise OSError(f"Failed to create output directory '{output_dir}': {e}")
+        raise OSError(f"Failed to create output directory '{output_dir}': {e}") from e
     except StorageError as e:
         # Re-raise StorageError with more context
-        raise StorageError(f"Failed to export notes: {e}", original_error=e)
+        raise StorageError(f"Failed to export notes: {e}", original_error=e) from e

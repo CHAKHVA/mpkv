@@ -1,7 +1,5 @@
 import argparse
-import io
 import sys
-from typing import Any
 
 import vault.core as vault
 from vault.errors import DuplicateTitleError, NoteNotFoundError, StorageError
