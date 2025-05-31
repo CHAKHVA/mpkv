@@ -1,74 +1,88 @@
-class StorageError(Exception):
-    """
-    Base exception for storage-related errors in the MPKV vault system.
+class VaultError(Exception):
+    """Base exception class for all MPKV vault errors.
 
-    This exception is raised when there are problems with reading from or writing
-    to the vault storage, including file system errors and data format issues.
+    This class serves as the base for all custom exceptions in the MPKV
+    vault system. It provides a consistent interface for error handling
+    and message formatting.
 
     Attributes:
         message: A human-readable error message
         original_error: The original exception that caused this error (if any)
     """
 
-    def __init__(self, message: str, original_error: Exception | None = None):
-        """
-        Initialize a new StorageError.
+    def __init__(self, message: str, original_error: Exception | None = None) -> None:
+        """Initialize a new VaultError.
 
         Args:
             message: A human-readable error message
             original_error: The original exception that caused this error (if any)
         """
         super().__init__(message)
+        self.message = message
         self.original_error = original_error
 
 
-class NoteNotFoundError(Exception):
-    """
-    Exception raised when a requested note file cannot be found.
+class StorageError(VaultError):
+    """Exception raised for vault storage-related errors.
 
-    This exception is raised when attempting to read a note file that doesn't exist
-    in the vault's notes directory.
+    This exception is raised when there are issues with file system operations,
+    such as reading or writing files, creating directories, or managing the
+    vault index.
 
     Attributes:
-        note_id: The ID of the note that was not found
+        message: A human-readable error message
+        original_error: The original exception that caused this error (if any)
+    """
+
+    def __init__(self, message: str, original_error: Exception | None = None) -> None:
+        """Initialize a new StorageError.
+
+        Args:
+            message: A human-readable error message
+            original_error: The original exception that caused this error (if any)
+        """
+        super().__init__(message, original_error)
+
+
+class NoteNotFoundError(VaultError):
+    """Exception raised when a requested note cannot be found.
+
+    This exception is raised when attempting to access a note that doesn't
+    exist in the vault, either by ID or title.
+
+    Attributes:
+        note_id: The ID of the note that wasn't found
         message: A human-readable error message
     """
 
-    def __init__(self, note_id: str, message: str | None = None):
-        """
-        Initialize a new NoteNotFoundError.
+    def __init__(self, note_id: str) -> None:
+        """Initialize a new NoteNotFoundError.
 
         Args:
-            note_id: The ID of the note that was not found
-            message: Optional custom error message
+            note_id: The ID of the note that wasn't found
         """
-        if message is None:
-            message = f"Note with ID '{note_id}' not found"
+        message = f"Note '{note_id}' not found"
         super().__init__(message)
         self.note_id = note_id
 
 
-class DuplicateTitleError(Exception):
-    """
-    Exception raised when attempting to create a note with a title that already exists.
+class DuplicateTitleError(VaultError):
+    """Exception raised when attempting to create a note with a duplicate title.
 
-    This exception is raised when trying to create a new note with a title that
-    matches an existing note in the vault.
+    This exception is raised when trying to create a new note with a title
+    that already exists in the vault.
 
     Attributes:
         title: The duplicate title that caused the error
         message: A human-readable error message
     """
 
-    def __init__(self, title: str, message: str | None = None):
-        """
-        Initialize a new DuplicateTitleError.
+    def __init__(self, title: str) -> None:
+        """Initialize a new DuplicateTitleError.
 
         Args:
             title: The duplicate title that caused the error
-            message: Optional custom error message
         """
-        if message is None:
-            message = f"Note with title '{title}' already exists"
+        message = f"A note with title '{title}' already exists"
         super().__init__(message)
         self.title = title

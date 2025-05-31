@@ -11,18 +11,22 @@ def handle_add(args: argparse.Namespace) -> None:
     """
     Handle the 'add' command to create a new note.
 
-    This function creates a new note with the given or prompted title, content, and tags.
-    If any of these are not provided as arguments, it will interactively prompt the user.
+    This function creates a new note with the given or prompted title, content,
+    and tags. If any of these are not provided as arguments, it will
+    interactively prompt the user.
 
     Args:
         args: Parsed command line arguments containing title, content, and tags
+
+    Raises:
+        SystemExit: If there are any errors during note creation
     """
     # Get title
     title = args.title
     while not title:
         title = input("Enter note title: ").strip()
         if not title:
-            print("Title cannot be empty. Please try again.")
+            print("Error: Title cannot be empty. Please try again.")
 
     # Get tags
     tags = args.tags
@@ -34,7 +38,7 @@ def handle_add(args: argparse.Namespace) -> None:
     content = args.content
     if content is None:
         print("\nEnter note content (empty line to finish):")
-        lines = []
+        lines: list[str] = []
         while True:
             try:
                 line = input()
@@ -65,11 +69,15 @@ def handle_view(args: argparse.Namespace) -> None:
     """
     Handle the 'view' command to display a note.
 
-    This function retrieves and displays a note by its title. If the note is not found
-    or there are storage errors, appropriate error messages are displayed.
+    This function retrieves and displays a note by its title. If the note
+    is not found or there are storage errors, appropriate error messages
+    are displayed.
 
     Args:
         args: Parsed command line arguments containing the note title
+
+    Raises:
+        SystemExit: If the note is not found or there are storage errors
     """
     try:
         # Get the note
@@ -93,6 +101,9 @@ def handle_list(args: argparse.Namespace) -> None:
 
     Args:
         args: Parsed command line arguments
+
+    Raises:
+        SystemExit: If there are storage errors
     """
     try:
         # Get all titles
@@ -121,6 +132,9 @@ def handle_search(args: argparse.Namespace) -> None:
 
     Args:
         args: Parsed command line arguments containing the search term
+
+    Raises:
+        SystemExit: If there are storage errors
     """
     try:
         # Search for notes
@@ -148,6 +162,9 @@ def handle_delete(args: argparse.Namespace) -> None:
 
     Args:
         args: Parsed command line arguments containing the note title
+
+    Raises:
+        SystemExit: If the note is not found or there are storage errors
     """
     try:
         # Delete the note
@@ -172,6 +189,9 @@ def handle_export(args: argparse.Namespace) -> None:
 
     Args:
         args: Parsed command line arguments containing the output directory
+
+    Raises:
+        SystemExit: If there are storage or OS errors
     """
     try:
         # Get output directory
@@ -182,7 +202,7 @@ def handle_export(args: argparse.Namespace) -> None:
         print(f"\nNotes exported successfully to: {output_dir}")
 
     except OSError as e:
-        print(f"Error: {e}")
+        print(f"Error: Failed to create output directory - {e}")
         sys.exit(1)
     except StorageError as e:
         print(f"Error: Failed to export notes - {e}")
@@ -199,6 +219,9 @@ def handle_tags(args: argparse.Namespace) -> None:
 
     Args:
         args: Parsed command line arguments
+
+    Raises:
+        SystemExit: If there are storage errors
     """
     try:
         # Get tag counts
@@ -237,7 +260,7 @@ def main() -> None:
 
     # Add command
     add_parser = subparsers.add_parser("add", help="Add a new note")
-    add_parser.add_argument("title", help="Title of the note")
+    add_parser.add_argument("title", nargs="?", help="Title of the note")
     add_parser.add_argument("content", nargs="?", help="Content of the note")
     add_parser.add_argument("--tags", "-t", help="Tags for the note (comma-separated)")
     add_parser.set_defaults(func=handle_add)
